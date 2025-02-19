@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gelir ve GitHub Raporu</title>
+    <!-- CSS Libraries -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <!-- Chart Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    
+    <!-- Development Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/locale/tr.js"></script>
+
+    <style>
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .dev-alert {
+            display: none;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background: #fff;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+    <!-- Loading Indicator -->
+    <div id="loading" class="loading">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+    </div>
+
+    <!-- Development Alert -->
+    <div id="devAlert" class="dev-alert"></div>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Gelir Raporu -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Gelir Raporu(Son iki yıl)</h2>
+            </div>
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="overflow-x-auto">
+                    <table class="w-full" id="incomeTable">
+                        <thead>
+                            <tr>
+                                <th class="p-2 text-left bg-blue-600 text-white rounded-tl">Kaynak</th>
+                                <th class="p-2 text-right bg-blue-600 text-white rounded-tr">Miktar (₺)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- JavaScript ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="chart-container">
+                    <canvas id="incomeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- GitHub İstatistikleri -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">GitHub İstatistikleri</h2>
+                <div id="lastUpdate" class="text-sm text-gray-500"></div>
+            </div>
+            
+            <!-- Özet İstatistikler -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg">
+                    <div class="text-sm text-blue-600">Toplam Katkı</div>
+                    <div class="text-2xl font-bold" id="totalContributions">3</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <div class="text-sm text-green-600">En Uzun Seri</div>
+                    <div class="text-2xl font-bold" id="longestStreak">188 gün</div>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg">
+                    <div class="text-sm text-purple-600">En Uzun Ara</div>
+                    <div class="text-2xl font-bold" id="longestGap">4 Gün</div>
+                </div>
+                <div class="bg-orange-50 p-4 rounded-lg">
+                    <div class="text-sm text-orange-600">Hafta Sonu Aktivitesi</div>
+                    <div class="text-2xl font-bold" id="weekendActivity">%88</div>
+                </div>
+            </div>
+
+            <!-- Grafikler -->
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="chart-container">
+                    <canvas id="languagesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="repositoriesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="contributionsByDayChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <canvas id="contributionsByMonthChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        // Veri
+        const incomeData = [
+            { source: "Fiverr", amount: 117989.11 },
+            { source: "Open Source", amount: 173205.62 },
+            { source: "upwork.com", amount: 2689.92 },
+            { source: "n10.net", amount: 6065 },
+            { source: "freelancer.com", amount: 39400 },
+            { source: "Kadir Köymen", amount: 6125.97 },
+            { source: "Melissa Nur Aladağ", amount: 30495 },
+            { source: "noFace.com Ads", amount: 33615.31 },
+            { source: "Google Ads", amount: 53.30 }
+        ];
+
+        const githubData = {
+            contributions: 139,
+            longestStreak: 3,
+            longestGap: 188,
+            weekendActivity: 88,
+            mostUsedLanguages: { "JavaScript": 2000, "Java": 3200, "CSS": 2300 },
+            mostActiveRepositories: { "Repo A": 5500, "Repo B": 3000, "Repo C": 2000 },
+            contributionsByDay: { "Sunday": 88, "Tuesday": 8, "Saturday": 35 },
+            contributionsByMonth: { "October": 133 }
+        };
+
+        // Development Tools
+        const devTools = {
+            performanceMode: false,
+            darkMode: false,
+            startTime: performance.now(),
+
+            showAlert(message, type = 'info') {
+                const alert = document.getElementById('devAlert');
+                alert.innerHTML = `
+                    <div class="flex items-center ${type === 'error' ? 'text-red-600' : 'text-blue-600'}">
+                        <i class="fas ${type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle'} mr-2"></i>
+                        ${message}
+                    </div>
+                `;
+                alert.style.display = 'block';
+                setTimeout(() => {
+                    alert.style.display = 'none';
+                }, 3000);
+            },
+
+            measurePerformance() {
+                const endTime = performance.now();
+                const loadTime = (endTime - this.startTime).toFixed(2);
+                this.showAlert(`Sayfa yüklenme süresi: ${loadTime}ms`);
+            },
+
+            initializeDevTools() {
+                // Performans ölçümü
+                window.addEventListener('load', () => {
+                    document.getElementById('loading').style.display = 'none';
+                    this.measurePerformance();
+                });
+
+                // Son güncelleme zamanı
+                document.getElementById('lastUpdate').textContent = 
+                    `Son güncelleme: ${moment().format('DD MMMM YYYY HH:mm')}`;
+
+                // Development modu uyarısı
+                if (window.location.hostname === 'localhost') {
+                    this.showAlert('Development modunda çalışıyor');
+                }
+            }
+        };
+
+        // Utility Functions
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('tr-TR', {
+                style: 'currency',
+                currency: 'TRY'
+            }).format(value);
+        }
+
+        function togglePerformance() {
+            devTools.performanceMode = !devTools.performanceMode;
+            devTools.showAlert(
+                devTools.performanceMode ? 'Performans modu aktif' : 'Performans modu deaktif'
+            );
+        }
+
+        function clearCache() {
+            localStorage.clear();
+            sessionStorage.clear();
+            devTools.showAlert('Cache temizlendi');
+        }
+
+        function exportData(format) {
+            const data = incomeData;
+            let content;
+
+            if (format === 'json') {
+                content = JSON.stringify(data, null, 2);
+                download(content, 'income-data.json', 'application/json');
+            } else if (format === 'csv') {
+                content = 'Source,Amount\n';
+                content += data.map(item => `${item.source},${item.amount}`).join('\n');
+                download(content, 'income-data.csv', 'text/csv');
+            }
+        }
+
+        function download(content, fileName, contentType) {
+            const a = document.createElement('a');
+            const file = new Blob([content], { type: contentType });
+            a.href = URL.createObjectURL(file);
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            devTools.initializeDevTools();
+            initializeCharts();
+            populateTable();
+        });
+
+        // Grafik ve tablo fonksiyonları burada...
+        function initializeCharts() {
+                    // Gelir grafiği
+                    new Chart(document.getElementById('incomeChart').getContext('2d'), {
+                        type: 'bar',
+                        data: {
+                            labels: incomeData.map(item => item.source),
+                            datasets: [{
+                                label: 'Gelir Dağılımı',
+                                data: incomeData.map(item => item.amount),
+                                backgroundColor: 'rgba(59, 130, 246, 0.8)'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false
+                        }
+                    });
+                // GitHub diller grafiği
+        new Chart(document.getElementById('languagesChart').getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: Object.keys(githubData.mostUsedLanguages),
+                datasets: [{
+                    data: Object.values(githubData.mostUsedLanguages),
+                    backgroundColor: ['#FACC15', '#3B82F6', '#22C55E']
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // En aktif repolar grafiği
+        new Chart(document.getElementById('repositoriesChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(githubData.mostActiveRepositories),
+                datasets: [{
+                    label: 'Commit Sayısı',
+                    data: Object.values(githubData.mostActiveRepositories),
+                    backgroundColor: 'rgba(99, 102, 241, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Gün bazında katkı grafiği
+        new Chart(document.getElementById('contributionsByDayChart').getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: Object.keys(githubData.contributionsByDay),
+                datasets: [{
+                    label: 'Günlük Katkılar',
+                    data: Object.values(githubData.contributionsByDay),
+                    borderColor: '#EF4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // Aylık katkı grafiği
+        new Chart(document.getElementById('contributionsByMonthChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: Object.keys(githubData.contributionsByMonth),
+                datasets: [{
+                    label: 'Aylık Katkılar',
+                    data: Object.values(githubData.contributionsByMonth),
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        }
+
+        function populateTable() {
+            const tableBody = document.querySelector('#incomeTable tbody');
+            let totalIncome = 0;
+            
+            incomeData.forEach(item => {
+                totalIncome += item.amount;
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+                row.innerHTML = `
+                    <td class="p-2">${item.source}</td>
+                    <td class="p-2 text-right">${formatCurrency(item.amount)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            const totalRow = document.createElement('tr');
+            totalRow.className = 'font-bold bg-blue-50';
+            totalRow.innerHTML = `
+                <td class="p-2">Toplam</td>
+                <td class="p-2 text-right text-blue-600">${formatCurrency(totalIncome)}</td>
+            `;
+            tableBody.appendChild(totalRow);
+        }
+    </script>
+</body>
+</html>
